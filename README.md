@@ -1,4 +1,4 @@
-# Salesforce AI Agent (Java + Ollama + Qdrant) — Synology Docker
+# Salesforce AI Agent (Java + Ollama + Qdrant) — Docker
 
 An on-prem, privacy-first AI agent that monitors a Salesforce Case list view, and for each new case it generates:
 
@@ -7,7 +7,7 @@ An on-prem, privacy-first AI agent that monitors a Salesforce Case list view, an
 - RAG over your local knowledge base
 - Memory to avoid re-processing already handled cases (SQLite)
 
-Runs fully local on Synology using Docker Compose, Ollama (LLM + embeddings), and Qdrant (vector DB).
+Runs fully local using Docker Compose, Ollama (LLM + embeddings), and Qdrant (vector DB).
 
 ## ✨ Features
 
@@ -123,18 +123,18 @@ Runs fully local on Synology using Docker Compose, Ollama (LLM + embeddings), an
 ### Deployment layouts
 
 **A) Local Ollama (default stack)**
-- docker-compose.yml runs: ollama, qdrant, sf-agent on the Synology
+- docker-compose.yml runs: ollama, qdrant, sf-agent locally
 - Agent uses OLLAMA_BASE=http://ollama:11434
-- Good for data residency (no prompts leave NAS)
+- Good for data residency (no prompts leave your infrastructure)
 
 **B) External Ollama**
-- Use docker-compose.external-ollama.yml: only qdrant + sf-agent on Synology
+- Use docker-compose.external-ollama.yml: only qdrant + sf-agent locally
 - OLLAMA_BASE=http://<external-host>:11434
 - Secure with LAN/TLS/reverse proxy; prompts/embeddings traverse the network to that host
 
 **C) OpenAI (optional)**
 - Set LLM_PROVIDER=openai and provide OPENAI_* in .env
-- Agent still stores vectors in Qdrant on Synology
+- Agent still stores vectors in Qdrant locally
 
 ### Ports & endpoints
 
@@ -156,7 +156,7 @@ Runs fully local on Synology using Docker Compose, Ollama (LLM + embeddings), an
 
 ### Security & data flow notes
 
-**Data leaving the NAS**
+**Data leaving your infrastructure**
 - **Local Ollama**: none (LLM calls are local)
 - **External Ollama / OpenAI**: the question/context (case text + RAG snippets) are sent to that endpoint over HTTPS/HTTP—secure accordingly (TLS, IP allowlists, reverse-proxy auth)
 
@@ -167,6 +167,7 @@ Runs fully local on Synology using Docker Compose, Ollama (LLM + embeddings), an
 
 ## 📁 Repository Layout
 
+```
 sf-ai-agent/
 ├─ docker/
 │  ├─ docker-compose.yml
@@ -175,6 +176,7 @@ sf-ai-agent/
 │     └─ prometheus.yml
 ├─ app/
 │  ├─ pom.xml
+│  ├─ Dockerfile
 │  └─ src/main/java/com/nby/agent/
 │     ├─ AgentApplication.java
 │     ├─ config/
@@ -202,13 +204,33 @@ sf-ai-agent/
 │     │  └─ CaseMemoryEntity.java
 │     └─ scheduler/
 │        └─ CaseWatcher.java
-├─ app/src/main/resources/application.yml
-├─ app/Dockerfile
+├─ app/src/main/resources/
+│  └─ application.yml
+├─ app/src/test/java/com/nby/agent/
+│  ├─ AgentApplicationTest.java
+│  ├─ config/
+│  │  ├─ AppConfigTest.java
+│  │  └─ PromptTemplatesTest.java
+│  ├─ llm/
+│  │  ├─ LlmFactoryTest.java
+│  │  └─ RagServiceTest.java
+│  ├─ metrics/
+│  │  ├─ MetricsServiceTest.java
+│  │  └─ MetricsIntegrationTest.java
+│  ├─ scheduler/
+│  │  └─ CaseWatcherTest.java
+│  └─ storage/
+│     ├─ CaseMemoryEntityTest.java
+│     └─ CaseMemoryRepositoryTest.java
+├─ app/src/test/resources/
+│  └─ application-test.yml
+├─ .gitignore
 └─ README.md
+```
 
 ## ✅ Requirements
 
-- Synology NAS with Container Manager (Docker) enabled
+- Docker and Docker Compose installed
 - Java 21 + Maven (to build the JAR once)
   - Alternative: use the optional multi-stage Dockerfile snippet below to build inside Docker
 - Salesforce org with API access:
@@ -527,7 +549,7 @@ services:
     environment:
       - OLLAMA_KEEP_ALIVE=24h
     volumes:
-      - /volume2/ollama:/root/.ollama
+      - ./data/ollama:/root/.ollama
     ports:
       - "11434:11434"
 
@@ -536,7 +558,7 @@ services:
     container_name: qdrant
     restart: unless-stopped
     volumes:
-      - /volume2/qdrant:/qdrant/storage
+      - ./data/qdrant:/qdrant/storage
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -571,8 +593,8 @@ services:
       - POLL_SECONDS=${POLL_SECONDS}
       - TZ=${TZ}
     volumes:
-      - /volume2/knowledge:/data/knowledge
-      - /volume2/handled_cases:/data
+      - ./data/knowledge:/data/knowledge
+      - ./data/handled_cases:/data
     ports:
       - "8080:8080"
 ```
@@ -588,7 +610,7 @@ services:
     container_name: qdrant
     restart: unless-stopped
     volumes:
-      - /volume2/qdrant:/qdrant/storage
+      - ./data/qdrant:/qdrant/storage
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -622,8 +644,8 @@ services:
       - POLL_SECONDS=${POLL_SECONDS}
       - TZ=${TZ}
     volumes:
-      - /volume2/knowledge:/data/knowledge
-      - /volume2/handled_cases:/data
+      - ./data/knowledge:/data/knowledge
+      - ./data/handled_cases:/data
     ports:
       - "8080:8080"
 ```
@@ -639,7 +661,7 @@ services:
     container_name: qdrant
     restart: unless-stopped
     volumes:
-      - /volume2/qdrant:/qdrant/storage
+      - ./data/qdrant:/qdrant/storage
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -674,8 +696,8 @@ services:
       - POLL_SECONDS=${POLL_SECONDS}
       - TZ=${TZ}
     volumes:
-      - /volume2/knowledge:/data/knowledge
-      - /volume2/handled_cases:/data
+      - ./data/knowledge:/data/knowledge
+      - ./data/handled_cases:/data
     ports:
       - "8080:8080"
 ```
