@@ -1,0 +1,61 @@
+version: "3.9"
+
+networks:
+  sfagent_net:
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    networks: [sfagent_net]
+    volumes:
+      - ${QDRANT_DATA}:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+
+  sf-agent:
+    build:
+      context: ../app
+      dockerfile: Dockerfile
+    container_name: sf-ai-agent
+    restart: unless-stopped
+    depends_on:
+      - qdrant
+    networks: [sfagent_net]
+    environment:
+      # Salesforce
+      - SF_LOGIN_URL=${SF_LOGIN_URL}
+      - SF_CLIENT_ID=${SF_CLIENT_ID}
+      - SF_CLIENT_SECRET=${SF_CLIENT_SECRET}
+      - SF_USERNAME=${SF_USERNAME}
+      - SF_PASSWORD=${SF_PASSWORD}
+      - SF_API_VERSION=${SF_API_VERSION}
+      - SF_CASE_LISTVIEW_LABEL=${SF_CASE_LISTVIEW_LABEL}
+
+      # External Ollama
+      - OLLAMA_BASE=${OLLAMA_BASE}
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL}
+      - OLLAMA_EMBED_MODEL=${OLLAMA_EMBED_MODEL}
+
+      # Qdrant (local in this stack)
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=sf_kb
+      - KB_PATH=/data/knowledge
+
+      # Agent
+      - POLL_SECONDS=${POLL_SECONDS}
+      - MEMORY_DB=/data/app/app.db
+      - TZ=${TZ}
+
+      ports:
+      - "8080:8080"
+
+    volumes:
+      - ${AGENT_DATA}:/data
+
+    # If the external Ollama is on the Synology host itself, uncomment this:
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    # and set OLLAMA_BASE=http://host.docker.internal:11434

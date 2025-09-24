@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    volumes:
+      - ${OLLAMA_DATA}:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    volumes:
+      - ${QDRANT_DATA}:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+
+  sf-agent:
+    build:
+      context: ../app
+      dockerfile: Dockerfile
+    container_name: sf-ai-agent
+    restart: unless-stopped
+    depends_on:
+      - ollama
+      - qdrant
+    environment:
+      - SF_LOGIN_URL=${SF_LOGIN_URL}
+      - SF_CLIENT_ID=${SF_CLIENT_ID}
+      - SF_CLIENT_SECRET=${SF_CLIENT_SECRET}
+      - SF_USERNAME=${SF_USERNAME}
+      - SF_PASSWORD=${SF_PASSWORD}
+      - SF_API_VERSION=${SF_API_VERSION}
+      - SF_CASE_LISTVIEW_LABEL=${SF_CASE_LISTVIEW_LABEL}
+
+      - OLLAMA_BASE=http://ollama:11434
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL}
+      - OLLAMA_EMBED_MODEL=${OLLAMA_EMBED_MODEL}
+
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=sf_kb
+      - KB_PATH=/data/knowledge
+
+      - POLL_SECONDS=${POLL_SECONDS}
+      - MEMORY_DB=/data/app/app.db
+      - TZ=${TZ}
+
+      ports:
+      - "8080:8080"
+
+    volumes:
+      - ${AGENT_DATA}:/data

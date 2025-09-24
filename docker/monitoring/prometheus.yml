@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: 'sf-ai-agent'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['sf-ai-agent:8080']
